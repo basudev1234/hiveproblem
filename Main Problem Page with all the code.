@@ -1,0 +1,409 @@
+import 'package:bigcart/Core/Database/cartHiveModel.dart';
+import 'package:bigcart/UI/CustomWidgets/CachedImage.dart';
+import 'package:bigcart/UI/CustomWidgets/appBar.dart';
+import 'package:bigcart/UI/Screens/Address/address.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_database/ui/firebase_animated_list.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/adapters.dart';
+import 'package:hive/hive.dart';
+import 'package:lottie/lottie.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
+
+class Cart extends StatelessWidget {
+  static String name = '/cart';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // bottomSheet: Container(height: 300, color: Colors.red),
+      appBar: mgyAppBar(title: "Cart"),
+
+      body: ValueListenableBuilder<Box<CartModel>>(
+        builder: (context, box, _) {
+          if (box.isEmpty) {
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Center(
+                  child: Lottie.network(
+                    "https://assets7.lottiefiles.com/temp/lf20_jzqS18.json",
+                    repeat: false,
+                  ),
+                ),
+                Text(
+                  "Your Cart is empty.",
+                  style: GoogleFonts.pressStart2p(
+                    color: Colors.black,
+                  ),
+                )
+              ],
+            );
+          } else {
+            return SlidingUpPanel(
+              backdropOpacity: 0.4,
+              backdropEnabled: true,
+              collapsed: Padding(
+                padding: const EdgeInsets.only(
+                  left: 6,
+                ),
+                child: Text(
+                  "swipe up ^^^",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w300,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(
+                  15,
+                ),
+              ),
+              maxHeight: MediaQuery.of(context).size.height * 0.6,
+              minHeight: MediaQuery.of(context).size.height * 0.1,
+              panel: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      height: 8,
+                      width: MediaQuery.of(context).size.width * 0.25,
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Order Info   (${box.length.toString()} Items)",
+                        style: GoogleFonts.squadaOne(
+                            color: Colors.black, fontSize: 20),
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                    ListTile(
+                      leading: Text("Subtotoal"),
+                      trailing: Text(
+                        "₹" +
+                            box.values
+                                .map((e) => e.originalPrice * e.quantity)
+                                .reduce((value, element) => value + element)
+                                .toString(),
+                      ),
+                    ),
+                    ListTile(
+                      leading: Text(
+                        "SAVINGS",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrangeAccent,
+                        ),
+                      ),
+                      trailing: Text(
+                        "₹ " +
+                            (box.values
+                                        .map(
+                                            (e) => e.originalPrice * e.quantity)
+                                        .reduce((value, element) =>
+                                            value + element) -
+                                    box.values
+                                        .map((e) => e.price * e.quantity)
+                                        .reduce((value, element) =>
+                                            value + element))
+                                .toStringAsFixed(2),
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      //subtitle: Text("free delivery on orders above ₹1000"),
+                      enabled: false,
+                      leading: Text("Delivery Charges"),
+                      trailing: box.values
+                                  .map((e) => e.price * e.quantity)
+                                  .reduce(
+                                      (value, element) => value + element) >=
+                              1000
+                          ? Text(
+                              "FREE",
+                              style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold),
+                            )
+                          : Text(
+                              "₹ 50",
+                            ),
+                    ),
+                    ListTile(
+                      enabled: false,
+                      leading: Text(
+                        "Total",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          fontSize: 19,
+                        ),
+                      ),
+                      trailing: Text(
+                        box.values.map((e) => e.price * e.quantity).reduce(
+                                    (value, element) => value + element) >
+                                1000
+                            ? "₹ " +
+                                box.values
+                                    .map((e) => e.price * e.quantity)
+                                    .reduce((value, element) => value + element)
+                                    .toStringAsFixed(2)
+                            : "₹ " +
+                                (box.values
+                                            .map((e) => e.price * e.quantity)
+                                            .reduce((value, element) =>
+                                                value + element) +
+                                        50)
+                                    .toString(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          fontSize: 19,
+                        ),
+                      ),
+                    ),
+                    MaterialButton(
+                      onPressed: () {
+                        var str = Hive.box(name);
+
+                        print(str);
+                        // print(box.values.first);
+                        // Navigator.of(context).push(
+                        //   CupertinoPageRoute(
+                        //     builder: (context) => Address(
+                        //       products: box.values,
+                        //       totalprice: box.values
+                        //                   .map((e) => e.price * e.quantity)
+                        //                   .reduce((value, element) =>
+                        //                       value + element) >
+                        //               1000
+                        //           ? box.values
+                        //               .map((e) => e.price * e.quantity)
+                        //               .reduce(
+                        //                   (value, element) => value + element)
+                        //               .toString()
+                        //           : (box.values
+                        //                       .map((e) => e.price * e.quantity)
+                        //                       .reduce((value, element) =>
+                        //                           value + element) +
+                        //                   50)
+                        //               .toString(),
+                        //     ),
+                        //   ),
+                        // );
+                      },
+                      child: Text(
+                        "CHECKOUT",
+                        style: GoogleFonts.kanit(fontSize: 25),
+                      ),
+                      color: Colors.orangeAccent,
+                    )
+                  ],
+                ),
+              ),
+              body: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).size.height * 0.2,
+                ),
+                child: ListView.builder(
+                    physics: BouncingScrollPhysics(),
+                    itemCount: box.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: Card(
+                          elevation: 8,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  ImageWidget(
+                                    image: box.getAt(index)!.image,
+                                  ),
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        Text(
+                                          box.getAt(index)!.title,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        RichText(
+                                          text: TextSpan(
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              decoration:
+                                                  TextDecoration.lineThrough,
+                                            ),
+                                            text: "₹" +
+                                                box
+                                                    .getAt(index)!
+                                                    .originalPrice
+                                                    .toString(),
+                                            children: [
+                                              TextSpan(
+                                                text: "    ₹" +
+                                                    box
+                                                        .getAt(index)!
+                                                        .price
+                                                        .toString(),
+                                                style: TextStyle(
+                                                    color: Colors.red,
+                                                    decoration:
+                                                        TextDecoration.none,
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              )
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(
+                                          5,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        IconButton(
+                                          onPressed: () async {
+                                            box.putAt(
+                                              index,
+                                              CartModel(
+                                                image: box.values
+                                                    .elementAt(index)
+                                                    .image,
+                                                originalPrice: box.values
+                                                    .elementAt(index)
+                                                    .originalPrice,
+                                                price: box.values
+                                                    .elementAt(index)
+                                                    .price,
+                                                quantity: box.values
+                                                        .elementAt(index)
+                                                        .quantity +
+                                                    1,
+                                                uid: box.values
+                                                    .elementAt(index)
+                                                    .uid,
+                                                title: box.values
+                                                    .elementAt(index)
+                                                    .title,
+                                              ),
+                                            );
+                                          },
+                                          icon: Icon(
+                                            Icons.add,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        Container(
+                                          color: Colors.white,
+                                          padding: const EdgeInsets.only(
+                                              left: 10,
+                                              right: 10,
+                                              top: 4,
+                                              bottom: 4),
+                                          child: Text(
+                                            box
+                                                .getAt(index)!
+                                                .quantity
+                                                .toString(),
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        box.getAt(index)!.quantity == 1
+                                            ? IconButton(
+                                                onPressed: () async {
+                                                  box.deleteAt(index);
+                                                },
+                                                icon: Icon(
+                                                  CupertinoIcons.delete,
+                                                  color: Colors.white,
+                                                ))
+                                            : IconButton(
+                                                onPressed: () async {
+                                                  box.putAt(
+                                                    index,
+                                                    CartModel(
+                                                      image: box.values
+                                                          .elementAt(index)
+                                                          .image,
+                                                      originalPrice: box.values
+                                                          .elementAt(index)
+                                                          .originalPrice,
+                                                      price: box.values
+                                                          .elementAt(index)
+                                                          .price,
+                                                      quantity: box.values
+                                                              .elementAt(index)
+                                                              .quantity -
+                                                          1,
+                                                      uid: box.values
+                                                          .elementAt(index)
+                                                          .uid,
+                                                      title: box.values
+                                                          .elementAt(index)
+                                                          .title,
+                                                    ),
+                                                  );
+                                                },
+                                                icon: Icon(
+                                                  Icons.remove,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              height: MediaQuery.of(context).size.height * 0.2,
+                            ),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              12,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+              ),
+            );
+          }
+        },
+        valueListenable: Hive.box<CartModel>('cartModel').listenable(),
+      ),
+    );
+  }
+}
